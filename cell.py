@@ -68,7 +68,7 @@ class cell:
         if y > 0:
             top = (x, y-1)
         
-        if y != m:
+        if y < m-1:
             bot = (x, y+1)
             
         if x < n-1:
@@ -81,7 +81,7 @@ class cell:
         
         pos = [grid.index(*x) for x in adj if x != None]
         
-        # print(x,y,pos)
+        # print(x,y,adj,pos)
         
         for p in pos:
             other = grid.storage[p]
@@ -103,7 +103,7 @@ class simgrid:
     def __init__(self, n, m):
         
         self._n = n
-        self._m = n
+        self._m = m
         
         self._coords = itertools.product(range(n), range(m))
         self.storage = []
@@ -116,7 +116,7 @@ class simgrid:
         return(len(self.storage))
     
     def __repr__(self):
-        #string representation of the grid layout
+        #formatted string representation of the grid layout
         
         ret = "grid coords:"
         
@@ -141,16 +141,22 @@ class simgrid:
     
     @property
     def shape(self):
+        #n, m shape of grid
         return(self._n, self._m)
         
     @property
-    def coorditer(self):        
+    def coorditer(self):
+        #iterable of coordinate pairs
         return(self._coords)
     
-    def index(self, x, y):        
-        return(x*(self._n + 1) + y)
+    #supplimentary property functions
+    def index(self, x, y):
+        #return flat index of x,y point on grid
+        return(x*(self._m) + y)
     
+    #housekeeping functions
     def mapobj(self, obj):
+        # print(self.shape)
         for coord in self.coorditer:
             x, y = coord
             
@@ -160,6 +166,7 @@ class simgrid:
             
             self.storage.append(obj(x, y, idx))
         
+        # print()
         for item in self.storage:
             item.connect(self)
             
@@ -167,15 +174,15 @@ class simgrid:
     
 if __name__ == "__main__":
     
-    n = 2
-    m = 3
+    heat = np.zeros((3,2))
     
-    grid = simgrid(n,m)       
+    n, m = heat.shape
     
+    grid = simgrid(n,m)
     print(grid)
-    
     grid.mapobj(cell)
     
+    print()
     for c in grid:
         print(c)
         print()
