@@ -5,9 +5,11 @@ Created on Sun May  9 12:14:40 2021
 @author: pc
 """
 
+from material import material
+
 class boundary:
     
-    def __init__(self, c1, c2 = "solid"):
+    def __init__(self, mat, c1, c2 = "solid"):
         
         """
         
@@ -28,6 +30,10 @@ class boundary:
         else:
             self._type = "join"
             
+        self.mat = mat
+        
+        self.t = 273
+            
     def __repr__(self):
         ret = "bound: " + str(self.c1)
         
@@ -46,12 +52,12 @@ class boundary:
     
     @property
     def type(self):
-        return(self._type)
+        return(self._type)    
     
-    
-    
-    
-    
+    def extract(self):
+        #set boundary to average of connected cells
+        if not self.edge:
+            self.t = (self.c1.t + self.c2.t)/2
     
 if __name__ == "__main__":
     

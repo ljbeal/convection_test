@@ -11,7 +11,7 @@ import itertools
 
 import numpy as np
 
-from boundary import boundary
+from material import material
 
 class cell:
     """
@@ -23,6 +23,7 @@ class cell:
     def __init__(self, 
                  x, y, idx, 
                  w, h,
+                 mat,
                  t = 273):
         
         self._x = x
@@ -38,17 +39,9 @@ class cell:
                        "l":None,
                        "r":None,
                        }
+    
+        self.mat = mat
         
-        # material properties
-        self.mat_props = {"cp":"specific heat",
-                          "visc":"viscosity",
-                          "mmass":"molar mass",
-                          "rho":"density",
-                          }
-        
-        self.mat_vals = {x:0 for x in self.mat_props}
-        
-        # info storage
         self._t = t
     
     def __repr__(self):
@@ -85,6 +78,16 @@ class cell:
     def loc(self):
         return((self._x,self._y))
     
+    #material based properties
+    @property
+    def t(self):
+        return(self._t)
+    
+    @t.setter
+    def t(self, t):
+        # print("overriding temperature for cell {} to {}k".format(self.idx, t))
+        self._t = t
+    
     #boundary connections
     @property
     def nbounds(self):
@@ -95,27 +98,12 @@ class cell:
         
         self.bounds[side] = bound
         
-    # material storage
-    def update_material(self, attr, value):
-        self.mat_vals[attr] = value
-    
-    @property
-    def t(self):
-        # average cell temperature
-        return(self._t)
-    
-    @property
-    def m(self):
-        #approximate mass
-        a = self.h * self.w
+    def propagate(self):
         
-        #take mean of width and height as depth for now
-        d = math.mean(self.cell_shape)
-        
-        v = a * d
-        
-        dens = self.mat_vals["rho"]
-        
-        return(v * dens)
+        t = 0
+        for bound in self.bounds.values():
+            t += bound.t/4
+            
+        self.t = round(t,2)
     
     

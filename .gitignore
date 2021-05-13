@@ -1,2 +1,4 @@
 /papers/*
 /.vscode/*
+/__pycache__/*
+/tests/*

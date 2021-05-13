@@ -5,6 +5,8 @@ Created on Thu May  6 11:47:17 2021
 @author: pc
 """
 
+import os
+import copy
 import random
 import itertools
 
@@ -13,6 +15,9 @@ import numpy as np
 #module imports
 from cell import cell
 from boundary import boundary
+from material import material
+
+import matplotlib.pyplot as plt
 
 
 class simgrid:
@@ -23,7 +28,7 @@ class simgrid:
     """
     
     def __init__(self, shape, 
-                 cell_obj = None, bound_obj = None,
+                 cell_obj = None, bound_obj = None, material_obj = None,
                  cell_size = None, grid_size = None,):
         
         #shape derivation and truth mapping for non-rectangular areas
@@ -61,7 +66,7 @@ class simgrid:
         
         #object handling
         #save object if passed, initialise cell and boundary lists
-        self.obj = {"cell":cell_obj, "bound":bound_obj}
+        self.obj = {"cell":cell_obj, "bound":bound_obj, "material":material_obj}
         self.cells = {} #linear dict of cells
         self.bounds = {} #linear dict of boundaries
         
@@ -139,7 +144,7 @@ class simgrid:
             
         return(v_obj)
         
-    def fill(self, cell_obj = None, bound_obj = None):
+    def fill(self, cell_obj = None, bound_obj = None, material_obj = None):
         
         """
         
@@ -149,6 +154,7 @@ class simgrid:
         # gather objects
         cell = self.validate_obj("cell", cell_obj)
         bound = self.validate_obj("bound", bound_obj)
+        mat = self.validate_obj("material", material_obj)
         # grid shape and cell size
         n, m = self.shape
         w, h = self.cell_shape
@@ -167,7 +173,7 @@ class simgrid:
                 if place:
                     # if there is a cell required at this location
                     # add to grid, and append to cells list
-                    c = cell(i, j, w, h, idx)
+                    c = cell(i, j, idx, w, h, mat)
                     
                     temp.append(c)
                     self.cells[idx] = c
@@ -209,7 +215,7 @@ class simgrid:
             ids = boundary_names[half] # cell ids in this connection
             
             cells = [self.cells[x] for x in ids] # grab references
-            thisbound = bound(*cells)
+            thisbound = bound(mat, *cells)
             
             self.bounds[idx] = thisbound # generate and register this boundary
             
@@ -257,40 +263,33 @@ class simgrid:
             
         
     # global update and extraction functions  
-    def validate_update(self, inp):
+                
+    @property
+    def temp(self):
         
-        t = type(inp)
+        # get param from each cell and return
         
-        if t in (str,int,float):
-            return([inp])
-        
-        elif t in (list, tuple):
-            return(inp)
-        
-        elif t in(dict,):
-            return(zip(inp.keys(), inp.values()))
-        
-        else:
-            raise Exception("unknown validationf or type ", t)
-
-      
-    def update_material(self, attrs, vals = None):
-        
-        if vals != None:
-            attrs = self.validate_update(attrs)
-            vals = self.validate_update(vals)
-            
-            upd = zip(attrs, vals)
-            
-        else:
-            upd = self.validate_update(attrs)
-        
-        
+        data = np.zeros((self.shape))
         for c in self:
             
-            for a,v in upd:
+            data[c.x, c.y] = c.t
             
-                c.update_material(a, v)
+        return(data)
+    
+    
+    # calculate DT
+    def dt(self, step = 1):
+        
+        print("extracting bound vals")
+        for b in self.bounds.values():
+            
+            b.extract()
+            
+        print("propagating...")
+        for c in self:
+            
+            c.propagate()
+            
             
     
 if __name__ == "__main__":
@@ -299,15 +298,37 @@ if __name__ == "__main__":
                           [True, True, True],
                           [True, True, False]])
     
-    # placement = 10,10
+    placement = 5,5
     
-    grid = simgrid(placement, cell, boundary, cell_size = (0.1, 0.1))    
-    grid.fill()
     
     # water
     # cs 4184 J /k /kg    
     # rho 997 kg /m3
-    grid.update_material({"cp": 4184,
-                          "rho": 997})
+    water = material()
+    water.update_material({"cp": 4184, "rho": 997})
     
-    print(list(grid)[0].mat_vals)
+    grid = simgrid(placement, cell, boundary, water, cell_size = (0.1, 0.1))    
+    grid.fill()
+    
+    grid.cells[0].t = 373
+    
+    if not os.path.exists("./tests/"):
+        os.mkdir("./tests/")
+    
+    data = []
+    fwidth = 4
+    for i in range(50):
+        print(i+1)
+        t = grid.temp
+        data.append(t)
+        grid.dt()
+        
+        fig, ax = plt.subplots(1,1,figsize=(15,15))
+        
+        im = ax.imshow(t)
+        fig.colorbar(im)
+        
+        istr = str(i).rjust(fwidth,"0")
+        plt.savefig("./tests/{}.png".format(istr), bbox_inches="tight")
+        
+    #ffmpeg -r 12 -f image2 -i %04d.png -vcodec libx264 -crf 25 test.mp4
