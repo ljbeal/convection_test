@@ -1,0 +1,26 @@
+7 stored cells:
+cell 0 | cell 1 | None  
+cell 2 | cell 3 | cell 4
+cell 5 | cell 6 | None  
+
+20 boundary connections:
+bound: cell 0, solid
+bound: cell 0, cell 1
+bound: cell 0, solid
+bound: cell 0, cell 2
+bound: cell 1, solid
+bound: cell 1, solid
+bound: cell 1, cell 3
+bound: cell 2, solid
+bound: cell 2, cell 3
+bound: cell 2, cell 5
+bound: cell 3, cell 4
+bound: cell 3, cell 6
+bound: cell 4, solid
+bound: cell 4, solid
+bound: cell 4, solid
+bound: cell 5, solid
+bound: cell 5, cell 6
+bound: cell 5, solid
+bound: cell 6, solid
+bound: cell 6, solid

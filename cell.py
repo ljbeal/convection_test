@@ -6,9 +6,12 @@ Created on Thu Apr 29 11:01:44 2021
 """
 
 import math
+import random
 import itertools
 
 import numpy as np
+
+from boundary import boundary
 
 class cell:
     """
@@ -17,29 +20,47 @@ class cell:
     
     """
     
-    def __init__(self, x, y, idx, t = 0):
+    def __init__(self, 
+                 x, y, idx, 
+                 w, h,
+                 t = 273):
         
         self._x = x
         self._y = y
         self._id = idx
         
-        self._t = t
+        self._w = w
+        self._h = h
         
-        self.adjacent = {}
+        # boundary conditions
+        self.bounds = {"t":None,
+                       "b":None,
+                       "l":None,
+                       "r":None,
+                       }
+        
+        # material properties
+        self.mat_props = {"cp":"specific heat",
+                          "visc":"viscosity",
+                          "mmass":"molar mass",
+                          "rho":"density",
+                          }
+        
+        self.mat_vals = {x:0 for x in self.mat_props}
+        
+        # info storage
+        self._t = t
     
     def __repr__(self):
         x, y = self.loc
         idx = self._id
         
-        ret = "cell object, located at grid ({}, {}), id {}".format(x, y, idx)
-        
-        ret += "\n\t{} connected cells:".format(len(self.adjacent))
-        
-        for item in self.adjacent.values():
-            ret += "\n\t{} {}".format(*item.loc)
+        # ret = "cell {} ({}, {})".format(idx, x, y)
+        ret = "cell {}".format(idx)
         
         return(ret)
         
+    #spatial properties
     @property
     def x(self):
         return(self._x)
@@ -49,140 +70,52 @@ class cell:
         return(self._y)
     
     @property
+    def w(self):
+        return(self._w)
+    
+    @property
+    def h(self):
+        return(self._h)
+    
+    @property
     def idx(self):
         return(self._id)
     
     @property
     def loc(self):
         return((self._x,self._y))
-        
-    def connect(self, grid):
-        #find neighbours from the grid and connect with them
-        
-        x, y = self.loc
-        n, m = grid.shape
-        
-        #initialise locals as None
-        top = bot = rgt = lft = None
-        
-        if y > 0:
-            top = (x, y-1)
-        
-        if y < m-1:
-            bot = (x, y+1)
-            
-        if x < n-1:
-            rgt = (x+1, y)
-            
-        if x > 0:
-            lft = (x-1, y)
-        
-        adj = (top,bot,rgt,lft)
-        
-        pos = [grid.index(*x) for x in adj if x != None]
-        
-        # print(x,y,adj,pos)
-        
-        for p in pos:
-            other = grid.storage[p]
-            
-            idx = other.idx
-            
-            if idx not in self.adjacent:
-                self.adjacent[idx] = other
-                
-                
-
-class simgrid:
-
-    """
-    iterable grid object
-    allows for cell storage and easy iteration without faffing with x,y or i
-    """
     
-    def __init__(self, n, m):
+    #boundary connections
+    @property
+    def nbounds(self):
+        n = len([x for x in self.bounds.values() if x != None])
+        return(n)
         
-        self._n = n
-        self._m = m
+    def update_bounds(self, side, bound):
         
-        self._coords = itertools.product(range(n), range(m))
-        self.storage = []
-            
-    def __iter__(self):
-        for item in self.storage:
-            yield(item)
-            
-    def __len__(self):
-        return(len(self.storage))
-    
-    def __repr__(self):
-        #formatted string representation of the grid layout
+        self.bounds[side] = bound
         
-        ret = "grid coords:"
-        
-        for x in range(n):
-            temp = []
-            for y in range(m):
-                temp.append("{}, {}".format(x,y))
-                
-            ret += "\n" + " | ".join(temp)
-            
-        ret += "\n"
-        
-        return(ret)
+    # material storage
+    def update_material(self, attr, value):
+        self.mat_vals[attr] = value
     
     @property
-    def n(self):
-        return(self._n)
+    def t(self):
+        # average cell temperature
+        return(self._t)
     
     @property
     def m(self):
-        return(self._m)
-    
-    @property
-    def shape(self):
-        #n, m shape of grid
-        return(self._n, self._m)
+        #approximate mass
+        a = self.h * self.w
         
-    @property
-    def coorditer(self):
-        #iterable of coordinate pairs
-        return(self._coords)
-    
-    #supplimentary property functions
-    def index(self, x, y):
-        #return flat index of x,y point on grid
-        return(x*(self._m) + y)
-    
-    #housekeeping functions
-    def mapobj(self, obj):
-        # print(self.shape)
-        for coord in self.coorditer:
-            x, y = coord
-            
-            idx = self.index(x, y)
-            
-            # print(x,y,idx)
-            
-            self.storage.append(obj(x, y, idx))
+        #take mean of width and height as depth for now
+        d = math.mean(self.cell_shape)
         
-        # print()
-        for item in self.storage:
-            item.connect(self)
-            
-            
+        v = a * d
+        
+        dens = self.mat_vals["rho"]
+        
+        return(v * dens)
     
-if __name__ == "__main__":
     
-    heat = np.zeros((3,2))
-    
-    n, m = heat.shape
-    
-    grid = simgrid(n,m)
-    print(grid)
-    grid.mapobj(cell)
-    
-    print()
-    for c in grid:
-        print(c)
-        print()
