@@ -32,7 +32,9 @@ class boundary:
             
         self.mat = mat
         
-        self.t = 273
+        
+        self.maxflux = 1E6
+        self._e = 0 #energy stored in this boundary
             
     def __repr__(self):
         ret = "bound: " + str(self.c1)
@@ -52,12 +54,15 @@ class boundary:
     
     @property
     def type(self):
-        return(self._type)    
-    
-    def extract(self):
-        #set boundary to average of connected cells
+        return(self._type)
+        
+    def dt(self):
+        #share energy across boundary
         if not self.edge:
-            self.t = (self.c1.t + self.c2.t)/2
+            store = self.c1.subtract_e() + self.c2.subtract_e()
+            
+            self.c1.add_e(store/2)
+            self.c2.add_e(store/2)
     
 if __name__ == "__main__":
     

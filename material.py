@@ -61,10 +61,20 @@ class material:
         
             self.mat_vals[a] = v
             
+    @property
+    def vals(self):
+        return(self.mat_vals)
+            
     # calculated properties
-    def m(self,h,w,d):
-        v = h * w * d
+    def m(self, v):
+        #mass from density and volume
         
         dens = self.mat_vals["rho"]
         
         return(dens * v)
+    
+    def t(self, mass, energy):
+        
+        t = energy / (mass * self.mat_vals["cp"])
+        
+        return(t)

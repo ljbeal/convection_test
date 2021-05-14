@@ -7,8 +7,12 @@ Created on Thu May  6 11:47:17 2021
 
 import os
 import copy
+import glob
 import random
 import itertools
+
+import matplotlib
+matplotlib.use('Agg')
 
 import numpy as np
 
@@ -265,40 +269,70 @@ class simgrid:
     # global update and extraction functions  
                 
     @property
-    def temp(self):
-        
-        # get param from each cell and return
-        
+    def temp(self):        
+        # get param from each cell and return        
         data = np.zeros((self.shape))
         for c in self:
             
-            data[c.x, c.y] = c.t
+            t = c.t
+            # print(t)
+            data[c.x, c.y] = round(t,2)
             
         return(data)
     
-    
-    # calculate DT
-    def dt(self, step = 1):
-        
-        print("extracting bound vals")
-        for b in self.bounds.values():
-            
-            b.extract()
-            
-        print("propagating...")
+    @property
+    def e(self):
+        # get param from each cell and return        
+        data = np.zeros((self.shape))
         for c in self:
             
-            c.propagate()
+            t = c._e
+            # print(t)
+            data[c.x, c.y] = round(t,2)
+            
+        return(data)        
+    
+    @property
+    def state(self):
+        pass
+    
+    
+    # calculate DT
+    def dt(self, energy = None, step = 1):
+        
+        #ensure sensible energy grid for energy injection
+        if type(energy) != np.ndarray:
+            energy = np.zeros(self.shape)
+            
+        assert energy.shape == self.shape
+        
+        energy = energy.flatten()
+        
+        # testb = list(self.bounds.values())[int(len(self.bounds)/2)]
+        # testc = testb.c1
+        idx = 0
+        for c in self.cells.values():
+            e = energy[idx]
+            
+            c.energy(e)
+            
+            idx += 1
+            
+        for b in self.bounds.values():
+            
+            b.dt()
             
             
     
 if __name__ == "__main__":
     
+    fig = False
+    
     placement = np.array([[True, True, False],
                           [True, True, True],
                           [True, True, False]])
     
-    placement = 5,5
+    placement = 9,9
     
     
     # water
@@ -310,25 +344,45 @@ if __name__ == "__main__":
     grid = simgrid(placement, cell, boundary, water, cell_size = (0.1, 0.1))    
     grid.fill()
     
-    grid.cells[0].t = 373
-    
     if not os.path.exists("./tests/"):
         os.mkdir("./tests/")
     
     data = []
     fwidth = 4
-    for i in range(50):
+    
+    e = np.zeros(grid.shape)
+    
+    x2 = int(grid.shape[0]/2)
+    y2 = int(grid.shape[1]/2)
+    
+    x2 = 1
+    y2 = 1
+    
+    r = 2
+    e[x2-r+1:x2+r, y2-r+1:y2+r] = 10000
+    
+    fig = True
+    
+    items = glob.glob("./tests/*")
+    
+    for item in items:
+        os.remove(item)
+    
+    for i in range(100):
+        # print()
         print(i+1)
         t = grid.temp
         data.append(t)
-        grid.dt()
+        grid.dt(e)
         
-        fig, ax = plt.subplots(1,1,figsize=(15,15))
-        
-        im = ax.imshow(t)
-        fig.colorbar(im)
-        
-        istr = str(i).rjust(fwidth,"0")
-        plt.savefig("./tests/{}.png".format(istr), bbox_inches="tight")
+        if fig:
+            fig, ax = plt.subplots(1,1,figsize=(15,15))
+            
+            im = ax.imshow(t, cmap = "seismic", vmin = 273, vmax = 323)
+            fig.colorbar(im)
+            
+            istr = str(i).rjust(fwidth,"0")
+            plt.savefig("./tests/{}.png".format(istr), bbox_inches="tight")
+            
         
     #ffmpeg -r 12 -f image2 -i %04d.png -vcodec libx264 -crf 25 test.mp4

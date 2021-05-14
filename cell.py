@@ -18,7 +18,7 @@ class cell:
     
     2D cell for convection surface simulation
     
-    """
+    """    
     
     def __init__(self, 
                  x, y, idx, 
@@ -42,7 +42,9 @@ class cell:
     
         self.mat = mat
         
-        self._t = t
+        self.material_properties = []
+        
+        self.t = t
     
     def __repr__(self):
         x, y = self.loc
@@ -71,6 +73,16 @@ class cell:
         return(self._h)
     
     @property
+    def d(self):
+        #approximate depth from mean of other attributes
+        return(sum((self.w, self.h))/2)
+    
+    @property
+    def v(self):
+        #volume analogue
+        return(self.h * self.w * self.d)
+    
+    @property
     def idx(self):
         return(self._id)
     
@@ -78,15 +90,56 @@ class cell:
     def loc(self):
         return((self._x,self._y))
     
-    #material based properties
+    
+    #material based properties        
+    @property
+    def e(self):
+        return(self._e)
+    
+    @property
+    def m(self):
+        # mass
+        
+        return(self.mat.m(self.v))
+    
     @property
     def t(self):
-        return(self._t)
+        #get temperature value from heat energy stored
+        #!!!TODO split energy types
+        
+        
+        t = self.mat.t(self.m, self.e)
+        
+        return(t)
     
     @t.setter
     def t(self, t):
         # print("overriding temperature for cell {} to {}k".format(self.idx, t))
-        self._t = t
+        # to set temperature, need to override energy storage
+        
+        # require mass
+        m = self.m
+        self._e = m * t * self.mat.vals["cp"]
+        
+    
+    #energetics
+    def energy(self, de):
+        e0 = self._e
+        self._e += de
+        
+        # print("cell {} e {} -> {}J".format(self.idx, e0, self._e))
+    
+    def subtract_e(self):
+        
+        de = self._e/4
+        
+        self.energy(-de)
+        
+        return(de)
+    
+    def add_e(self, e):
+        
+        self.energy(e)
     
     #boundary connections
     @property
@@ -97,13 +150,3 @@ class cell:
     def update_bounds(self, side, bound):
         
         self.bounds[side] = bound
-        
-    def propagate(self):
-        
-        t = 0
-        for bound in self.bounds.values():
-            t += bound.t/4
-            
-        self.t = round(t,2)
-    
-    
