@@ -9,6 +9,9 @@ kb = 8.314     #J /K /mol
 R  = 1.381E-23 #J /K
 N  = 6.022E23  #/mol
 
+#black body emission
+sig = 5.67E-8 #W /m^2 /K^4 
+
 class material:
     
     """
@@ -25,9 +28,13 @@ class material:
                           "visc":"viscosity",
                           "mmass":"molar mass",
                           "rho":"density",
+                          "e":"emissivity"
                           }
         
         self.mat_vals = {x:0 for x in self.mat_props}
+        
+        #update any defaults
+        self.mat_vals["e"] = 1 #set emissivity to 1 to approximate black body
         
     def validate_update(self, inp):
         
@@ -78,3 +85,11 @@ class material:
         t = energy / (mass * self.mat_vals["cp"])
         
         return(t)
+    
+    def emittance(self, a, t):
+        
+        #emittance - multiply by dt for energy loss
+        
+        e = self.mat_vals["e"] #emissivity 0 > e >= 1
+        
+        return(a*e*sig*t**4)

@@ -40,11 +40,15 @@ class cell:
                        "r":None,
                        }
     
-        self.mat = mat
+        self.mat = mat   
         
-        self.material_properties = []
-        
+        #initial temperature
         self.t = t
+        
+        
+        #vector attributes
+        self.vect = {"v":0,"u":0}
+        
     
     def __repr__(self):
         x, y = self.loc
@@ -78,6 +82,10 @@ class cell:
         return(sum((self.w, self.h))/2)
     
     @property
+    def a(self):
+        return(self.h * self.w)
+        
+    @property
     def v(self):
         #volume analogue
         return(self.h * self.w * self.d)
@@ -107,7 +115,6 @@ class cell:
         #get temperature value from heat energy stored
         #!!!TODO split energy types
         
-        
         t = self.mat.t(self.m, self.e)
         
         return(t)
@@ -123,23 +130,55 @@ class cell:
         
     
     #energetics
-    def energy(self, de):
-        e0 = self._e
-        self._e += de
+    def move_energy(self, de = None, orient = None):
+        # e0 = self._e
+        if de == None:
+            de = self._e
+            self._e = 0
+            
+        else:
+            self._e += de
         
         # print("cell {} e {} -> {}J".format(self.idx, e0, self._e))
-    
-    def subtract_e(self):
         
-        de = self._e/4
+        if orient != None:
+            if orient == "r":
+                self.vect["v"] -= de
+            if orient == "l":
+                self.vect["v"] += de
+            if orient == "t":
+                self.vect["u"] += de
+            if orient == "b":
+                self.vect["u"] -= de
         
-        self.energy(-de)
+        return(abs(de))
         
-        return(de)
-    
-    def add_e(self, e):
+    @property
+    def bbody_power(self):
+        #call the emissivity function with stored values
         
-        self.energy(e)
+        P = self.mat.emittance(self.a, self.t)
+        
+        return(P)
+        
+    def dt(self, dt):
+        
+        P = self.bbody_power
+        de = P * dt #amount lost to emission
+        
+        e_rad = self.move_energy(-de)
+        
+        e_share = self.move_energy() #all remaining energy is shared
+        
+        for b in self.bounds.values():
+            
+            b._e += e_share/4
+            
+    def get_vect(self):
+        u,v = self.vect.values()
+        self.vect = {"v":0,"u":0}
+        
+        return(u,v)
     
     #boundary connections
     @property

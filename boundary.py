@@ -55,14 +55,36 @@ class boundary:
     @property
     def type(self):
         return(self._type)
+       
+    def get_orient(self, cell):
         
-    def dt(self):
+        for key, val in cell.bounds.items():
+            if val == self:
+                return(key)
+    
+    def dt(self, step):
         #share energy across boundary
-        if not self.edge:
-            store = self.c1.subtract_e() + self.c2.subtract_e()
+        store = self._e
+        
+        c1orient = self.get_orient(self.c1)
+        if not self.edge:            
             
-            self.c1.add_e(store/2)
-            self.c2.add_e(store/2)
+            c2orient = self.get_orient(self.c2)
+            
+            self.c1.move_energy(store/2, c1orient)
+            self.c2.move_energy(store/2, c2orient)
+            
+        else:
+            if self.type == "free":
+                ratio = 2
+            elif self.type == "solid":
+                ratio = 1
+            
+            self.c1.move_energy(store/ratio, c1orient)
+            
+        self._e = 0 #reset energy
+        
+                
     
 if __name__ == "__main__":
     

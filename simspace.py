@@ -15,13 +15,15 @@ import matplotlib
 matplotlib.use('Agg')
 
 import numpy as np
+import matplotlib.pyplot as plt
+
+from datetime import datetime
 
 #module imports
 from cell import cell
 from boundary import boundary
 from material import material
 
-import matplotlib.pyplot as plt
 
 
 class simgrid:
@@ -311,18 +313,28 @@ class simgrid:
         # testb = list(self.bounds.values())[int(len(self.bounds)/2)]
         # testc = testb.c1
         idx = 0
-        for c in self.cells.values():
+        for c in self:
+            #first stage - energy increase and dump to bounds
             e = energy[idx]
             
-            c.energy(e)
+            c.move_energy(e)
             
             idx += 1
             
+            c.dt(step)
+            
         for b in self.bounds.values():
             
-            b.dt()
+            b.dt(step)
+        
+        u = np.zeros(self.shape)
+        v = np.zeros(self.shape)
+        for c in self:
+            x, y = c.loc
             
+            u[x,y], v[x,y] = c.get_vect()
             
+        return(u,v)
     
 if __name__ == "__main__":
     
@@ -332,7 +344,7 @@ if __name__ == "__main__":
                           [True, True, True],
                           [True, True, False]])
     
-    placement = 9,9
+    placement = 15,15
     
     
     # water
@@ -350,16 +362,14 @@ if __name__ == "__main__":
     data = []
     fwidth = 4
     
-    e = np.zeros(grid.shape)
     
     x2 = int(grid.shape[0]/2)
     y2 = int(grid.shape[1]/2)
     
-    x2 = 1
-    y2 = 1
+    x2 = 3
+    y2 = 3
     
     r = 2
-    e[x2-r+1:x2+r, y2-r+1:y2+r] = 10000
     
     fig = True
     
@@ -368,21 +378,40 @@ if __name__ == "__main__":
     for item in items:
         os.remove(item)
     
-    for i in range(100):
+    steps = 150
+    
+    
+    t0 = datetime.now()
+    for i in range(steps):
+        
+        e = np.zeros(grid.shape)
+        if i < 50:
+            # e[x2-r+1:x2+r, y2-r+1:y2+r] = 10000
+            e[y2,:] = 10000
+            e[:,x2] = 10000
+        
         # print()
-        print(i+1)
+        print("processing timestep {}".format(i+1))
         t = grid.temp
         data.append(t)
-        grid.dt(e)
+        u,v = grid.dt(e)
         
         if fig:
             fig, ax = plt.subplots(1,1,figsize=(15,15))
             
-            im = ax.imshow(t, cmap = "seismic", vmin = 273, vmax = 323)
+            im = ax.imshow(t, cmap = "seismic", vmin = 273, vmax = 323, origin='lower')
+            ax.quiver(u,v)
             fig.colorbar(im)
+            
+            title = "timestep "
+            title += "{}/{}".format(i+1,steps).ljust(len(str(steps))*2+2)
+            
+            ax.set_title(title)
             
             istr = str(i).rjust(fwidth,"0")
             plt.savefig("./tests/{}.png".format(istr), bbox_inches="tight")
             
+    dt = (datetime.now() - t0).total_seconds()
+    print("time taken: {:.2f}s".format(dt))
         
     #ffmpeg -r 12 -f image2 -i %04d.png -vcodec libx264 -crf 25 test.mp4
