@@ -72,6 +72,7 @@ class simgrid:
         
         #object handling
         #save object if passed, initialise cell and boundary lists
+        self.boundary_cond = boundary_cond
         self.obj = {"cell":cell_obj, "bound":bound_obj, "material":material_obj}
         self.cells = {} #linear dict of cells
         self.bounds = {} #linear dict of boundaries
@@ -220,8 +221,17 @@ class simgrid:
         for half in boundary_names.keys():
             ids = boundary_names[half] # cell ids in this connection
             
+            cond = self.boundary_cond
+            
             cells = [self.cells[x] for x in ids] # grab references
-            thisbound = bound(mat, *cells)
+            
+            c1 = self.cells[ids[0]]
+            if len(ids) == 2:
+                c2 = self.cells[ids[1]]
+            else:
+                c2 = None
+            
+            thisbound = bound(mat, c1, c2, cond)
             
             self.bounds[idx] = thisbound # generate and register this boundary
             
@@ -375,6 +385,7 @@ if __name__ == "__main__":
     # p.add_circle(100)
     
     placement = p.grid
+    placement[0,0] = 1
     
     # placement = np.array([[True,True,False],
     #                       [True,True,True],
@@ -386,7 +397,7 @@ if __name__ == "__main__":
     water = material()
     water.update_material({"cp": 4184, "rho": 997})
     
-    grid = simgrid(placement, cell, boundary, water, boundary_cond = "free", cell_size = (0.1, 0.1))    
+    grid = simgrid(placement, cell, boundary, water, boundary_cond = "solid", cell_size = (0.1, 0.1))    
     grid.fill()
     
     if not os.path.exists("./tests/"):
@@ -411,6 +422,7 @@ if __name__ == "__main__":
         ebase = input_grid(*grid.shape)
         if i < 50:
             ebase.add_cross()
+            ebase.add_circle(3)
             test = ebase.grid
             
         e = ebase.grid * 10000        
