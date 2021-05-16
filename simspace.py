@@ -34,6 +34,7 @@ class simgrid:
     
     def __init__(self, shape, 
                  cell_obj = None, bound_obj = None, material_obj = None,
+                 boundary_cond = "solid",
                  cell_size = None, grid_size = None,):
         
         #shape derivation and truth mapping for non-rectangular areas
@@ -269,8 +270,7 @@ class simgrid:
                     side = orient[1]
                 else:
                     side = orient[0]
-                   
-                   
+                    
                 # print("\texplicit",cell,side)
                     
                 cell.update_bounds(side, thisbound)
@@ -386,7 +386,7 @@ if __name__ == "__main__":
     water = material()
     water.update_material({"cp": 4184, "rho": 997})
     
-    grid = simgrid(placement, cell, boundary, water, cell_size = (0.1, 0.1))    
+    grid = simgrid(placement, cell, boundary, water, boundary_cond = "free", cell_size = (0.1, 0.1))    
     grid.fill()
     
     if not os.path.exists("./tests/"):

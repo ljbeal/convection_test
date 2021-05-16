@@ -9,7 +9,7 @@ from material import material
 
 class boundary:
     
-    def __init__(self, mat, c1, c2 = "solid"):
+    def __init__(self, mat, c1, c2 = None, boundary_cond = "solid"):
         
         """
         
@@ -25,8 +25,8 @@ class boundary:
         
         self.connected = [c1, c2]
         
-        if type(c2) == str:
-            self._type = c2
+        if (type(c2) == str) or (c2 == None):
+            self._type = self.c2 = boundary_cond
         else:
             self._type = "join"
             
