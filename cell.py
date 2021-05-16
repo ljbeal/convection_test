@@ -45,9 +45,8 @@ class cell:
         #initial temperature
         self.t = t
         
-        
         #vector attributes
-        self.vect = {"v":0,"u":0}
+        self.evect = {"v":0,"u":0}
         
     
     def __repr__(self):
@@ -128,6 +127,21 @@ class cell:
         m = self.m
         self._e = m * t * self.mat.vals["cp"]
         
+    @property
+    def p(self):
+        
+        p = self.mat.p(self.v, self.t)
+        
+        return(p)
+        
+    @property
+    def state(self):
+        #return everything in a dict
+        props = {"t":self.t,
+                 "p":self.p,
+                 }
+        
+        return(props)
     
     #energetics
     def move_energy(self, de = None, orient = None):
@@ -143,13 +157,13 @@ class cell:
         
         if orient != None:
             if orient == "r":
-                self.vect["v"] -= de
+                self.evect["v"] -= de
             if orient == "l":
-                self.vect["v"] += de
+                self.evect["v"] += de
             if orient == "t":
-                self.vect["u"] += de
+                self.evect["u"] += de
             if orient == "b":
-                self.vect["u"] -= de
+                self.evect["u"] -= de
         
         return(abs(de))
         
@@ -174,9 +188,9 @@ class cell:
             
             b._e += e_share/4
             
-    def get_vect(self):
-        u,v = self.vect.values()
-        self.vect = {"v":0,"u":0}
+    def get_evect(self):
+        u,v = self.evect.values()
+        self.evect = {"v":0,"u":0}
         
         return(u,v)
     

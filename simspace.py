@@ -308,20 +308,7 @@ class simgrid:
                 
                 raise Exception("{} != 4 bounds in cell {} ({}, {})".format(len(connected), c.idx, *c.loc))
                     
-    # global update and extraction functions  
-                
-    @property
-    def temp(self):        
-        # get param from each cell and return        
-        data = np.zeros((self.shape))
-        data[:] = np.nan
-        for c in self:
-            
-            t = c.t
-            # print(t)
-            data[c.x, c.y] = round(t,2)
-            
-        return(data)
+    # global update and extraction functions    
     
     @property
     def e(self):
@@ -336,8 +323,23 @@ class simgrid:
         return(data)        
     
     @property
-    def state(self):
-        pass
+    def state(self):  
+        # get param from each cell and return        
+
+        props = list(self)[0].state.keys() #get list of properties in state 
+        
+        #create empty array for each
+        output = {k:np.empty((self.shape))*np.nan for k in props}
+        
+        for c in self:
+            
+            t = c.state
+            
+            for key in t:
+            
+                output[key][c.x, c.y] = t[key]
+            
+        return(output)
     
     
     # calculate DT
@@ -371,7 +373,7 @@ class simgrid:
         for c in self:
             x, y = c.loc
             
-            u[x,y], v[x,y] = c.get_vect()
+            u[x,y], v[x,y] = c.get_evect()
             
         return(u,v)
     
@@ -394,8 +396,9 @@ if __name__ == "__main__":
     # water
     # cs 4184 J /k /kg    
     # rho 997 kg /m3
+    # mmass 18.01528 g/mol
     water = material()
-    water.update_material({"cp": 4184, "rho": 997})
+    water.update_material({"cp": 4184, "rho": 997, "mmass": 18.01528})
     
     grid = simgrid(placement, cell, boundary, water, boundary_cond = "solid", cell_size = (0.1, 0.1))    
     grid.fill()
@@ -406,7 +409,7 @@ if __name__ == "__main__":
     data = []
     fwidth = 4
     
-    fig = True
+    # fig = True
     
     items = glob.glob("./tests/*")
     
@@ -422,13 +425,13 @@ if __name__ == "__main__":
         ebase = input_grid(*grid.shape)
         if i < 50:
             ebase.add_cross()
-            ebase.add_circle(3)
+            ebase.add_circle(3.5)
             test = ebase.grid
             
         e = ebase.grid * 10000        
         # print()
         print("processing timestep {}".format(i+1))
-        t = grid.temp
+        t = grid.state["t"]
         data.append(t)
         u,v = grid.dt(e)
         

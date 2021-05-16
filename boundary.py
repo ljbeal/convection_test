@@ -32,8 +32,6 @@ class boundary:
             
         self.mat = mat
         
-        
-        self.maxflux = 1E6
         self._e = 0 #energy stored in this boundary
             
     def __repr__(self):

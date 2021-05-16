@@ -5,9 +5,9 @@ Created on Wed May  5 13:19:29 2021
 @author: pc
 """
 
-kb = 8.314     #J /K /mol
-R  = 1.381E-23 #J /K
+kb = 1.381E-23 #J /K
 N  = 6.022E23  #/mol
+R  = 8.314     #J /K /mol
 
 #black body emission
 sig = 5.67E-8 #W /m^2 /K^4 
@@ -93,3 +93,18 @@ class material:
         e = self.mat_vals["e"] #emissivity 0 > e >= 1
         
         return(a*e*sig*t**4)
+    
+    def p(self, v, t):
+        #cheat and use ideal gas equation
+        #well, they're both fluids..?
+        
+        #PV = nRT
+        #P = nRT / V
+        
+        m = self.m(v) #mass /kg
+        n = 1e-3 * m / self.vals["mmass"] #amount
+        
+        p = n*R*t/v
+        
+        return(p)
+        
