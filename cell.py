@@ -188,4 +188,7 @@ class cell:
         
     def update_bounds(self, side, bound):
         
+        # if self.idx == 4:
+        #     print(side, bound)
+        
         self.bounds[side] = bound

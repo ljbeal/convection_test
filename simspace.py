@@ -23,8 +23,7 @@ from datetime import datetime
 from cell import cell
 from boundary import boundary
 from material import material
-
-
+from input_grid import input_grid
 
 class simgrid:
 
@@ -252,12 +251,25 @@ class simgrid:
                     
             else:
                 #otherwise we have to explicitly check orient
-                if "-" in half:
+                #get location of cell and check which side this bound is on
+                cell = cells[0] 
+                
+                n, m = cell.loc
+                hn = float(half.split()[0].replace("n",""))
+                hm = float(half.split()[1].replace("m","")) 
+                
+                if vert:
+                    #using n coord
+                    #closer to origin side if true
+                    ori = hn < n
+                else:
+                    ori = hm < m
+                
+                if ori:
                     side = orient[1]
                 else:
                     side = orient[0]
                    
-                cell = cells[0] 
                    
                 # print("\texplicit",cell,side)
                     
@@ -267,13 +279,32 @@ class simgrid:
             
             idx += 1
             
-        
+        print("checking...")
+        for c in self:
+            connected = [x for x in c.bounds.values() if x != None]
+            
+            if len(connected) != 4:
+                
+                test = []
+                for b in boundary_names:
+                    print(b.ljust(8), boundary_names[b])
+                    
+                    test.extend(boundary_names[b])
+                    
+                print()   
+                uniq = list(set(test))
+                for u in uniq:
+                    print(u, test.count(u))
+                
+                raise Exception("{} != 4 bounds in cell {} ({}, {})".format(len(connected), c.idx, *c.loc))
+                    
     # global update and extraction functions  
                 
     @property
     def temp(self):        
         # get param from each cell and return        
         data = np.zeros((self.shape))
+        data[:] = np.nan
         for c in self:
             
             t = c.t
@@ -308,18 +339,16 @@ class simgrid:
             
         assert energy.shape == self.shape
         
-        energy = energy.flatten()
-        
         # testb = list(self.bounds.values())[int(len(self.bounds)/2)]
         # testc = testb.c1
-        idx = 0
         for c in self:
             #first stage - energy increase and dump to bounds
-            e = energy[idx]
             
-            c.move_energy(e)
+            n, m = c.loc
             
-            idx += 1
+            e = energy[n,m]
+            
+            c.move_energy(e)            
             
             c.dt(step)
             
@@ -340,12 +369,16 @@ if __name__ == "__main__":
     
     fig = False
     
-    placement = np.array([[True, True, False],
-                          [True, True, True],
-                          [True, True, False]])
     
-    placement = 15,15
+    p = input_grid(15,15)
+    p.add_circle(7)
+    # p.add_circle(100)
     
+    placement = p.grid
+    
+    # placement = np.array([[True,True,False],
+    #                       [True,True,True],
+    #                       [True,True,False]])
     
     # water
     # cs 4184 J /k /kg    
@@ -362,15 +395,6 @@ if __name__ == "__main__":
     data = []
     fwidth = 4
     
-    
-    x2 = int(grid.shape[0]/2)
-    y2 = int(grid.shape[1]/2)
-    
-    x2 = 3
-    y2 = 3
-    
-    r = 2
-    
     fig = True
     
     items = glob.glob("./tests/*")
@@ -384,12 +408,12 @@ if __name__ == "__main__":
     t0 = datetime.now()
     for i in range(steps):
         
-        e = np.zeros(grid.shape)
+        ebase = input_grid(*grid.shape)
         if i < 50:
-            # e[x2-r+1:x2+r, y2-r+1:y2+r] = 10000
-            e[y2,:] = 10000
-            e[:,x2] = 10000
-        
+            ebase.add_cross()
+            test = ebase.grid
+            
+        e = ebase.grid * 10000        
         # print()
         print("processing timestep {}".format(i+1))
         t = grid.temp
