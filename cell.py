@@ -17,6 +17,8 @@ class cell:
     """
     
     2D cell for convection surface simulation
+    stores energy and momentum terms
+    instantaneous properties calculated from the material class
     
     """    
     
@@ -39,6 +41,8 @@ class cell:
                        "l":None,
                        "r":None,
                        }
+        
+        self.outside = False
     
         self.mat = mat   
         
@@ -46,7 +50,11 @@ class cell:
         self.t = t
         
         #vector attributes
-        self.evect = {"v":0,"u":0}
+        self.evect = {"u":0,"v":0}
+        self.mvect = {"u":0,"v":0}
+        
+        #config
+        self.rad_loss = True
         
     
     def __repr__(self):
@@ -138,13 +146,14 @@ class cell:
     def state(self):
         #return everything in a dict
         props = {"t":self.t,
+                 "e":self._e,
                  "p":self.p,
                  }
         
         return(props)
     
     #energetics
-    def move_energy(self, de = None, orient = None):
+    def move_energy(self, de = None, orient = None, dt = 0):
         # e0 = self._e
         if de == None:
             de = self._e
@@ -155,17 +164,29 @@ class cell:
         
         # print("cell {} e {} -> {}J".format(self.idx, e0, self._e))
         
-        if orient != None:
-            if orient == "r":
-                self.evect["v"] -= de
-            if orient == "l":
-                self.evect["v"] += de
-            if orient == "t":
-                self.evect["u"] += de
-            if orient == "b":
-                self.evect["u"] -= de
-        
+            
+        self.update_vector(self.evect, orient, de)
+            
         return(abs(de))
+    
+    def move_material(self, dm, orient, dt = 0):
+        
+        self.update_vector(self.mvect, orient, dm)
+        
+    def update_vector(self, vect, orient, val):
+        
+        if orient != None:
+            
+            if orient == "r":
+                vect["u"] -= val
+            elif orient == "l":
+                vect["u"] += val
+            elif orient == "t":
+                vect["v"] += val
+            elif orient == "b":
+                vect["v"] -= val
+            else:
+                raise Exception("unkown orient {}".format(orient))
         
     @property
     def bbody_power(self):
@@ -177,10 +198,13 @@ class cell:
         
     def dt(self, dt):
         
-        P = self.bbody_power
-        de = P * dt #amount lost to emission
+        p_init = self.p
         
-        e_rad = self.move_energy(-de)
+        if self.rad_loss:
+            P = self.bbody_power
+            de = P * dt #amount lost to emission
+            
+            e_rad = self.move_energy(-de)
         
         e_share = self.move_energy() #all remaining energy is shared
         
@@ -188,11 +212,20 @@ class cell:
             
             b._e += e_share/4
             
-    def get_evect(self):
-        u,v = self.evect.values()
-        self.evect = {"v":0,"u":0}
+            b.pressure[b.connected.index(self)] = p_init
+            
+        return(e_rad)
+            
+    def get_vect(self):
+        eu,ev = self.evect.values()
+        mu,mv = self.mvect.values()
+        self.evect = {"u":0,"v":0}
+        self.mvect = {"u":0,"v":0}
         
-        return(u,v)
+        vect = {"e":(eu,ev),
+                "m":(mu,mv)}
+        
+        return(vect)
     
     #boundary connections
     @property

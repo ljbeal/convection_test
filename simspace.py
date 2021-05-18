@@ -16,12 +16,13 @@ matplotlib.use('Agg')
 
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from datetime import datetime
 
 #module imports
 from cell import cell
-from boundary import boundary
+from boundary import boundary, edge
 from material import material
 from input_grid import input_grid
 
@@ -34,8 +35,10 @@ class simgrid:
     
     def __init__(self, shape, 
                  cell_obj = None, bound_obj = None, material_obj = None,
-                 boundary_cond = "solid",
-                 cell_size = None, grid_size = None,):
+                 outside = None,
+                 cell_size = None, grid_size = None,
+                 t_init = 273,
+                 flow = True):
         
         #shape derivation and truth mapping for non-rectangular areas
         if type(shape) in (list, tuple):
@@ -72,10 +75,16 @@ class simgrid:
         
         #object handling
         #save object if passed, initialise cell and boundary lists
-        self.boundary_cond = boundary_cond
+        self.outside = outside
         self.obj = {"cell":cell_obj, "bound":bound_obj, "material":material_obj}
         self.cells = {} #linear dict of cells
         self.bounds = {} #linear dict of boundaries
+        
+        
+        #initial conditions and config
+        self.t_init = t_init
+        
+        self.flow = flow
         
     # dunder functions
     def __iter__(self):
@@ -180,7 +189,7 @@ class simgrid:
                 if place:
                     # if there is a cell required at this location
                     # add to grid, and append to cells list
-                    c = cell(i, j, idx, w, h, mat)
+                    c = cell(i, j, idx, w, h, mat, t=self.t_init)
                     
                     temp.append(c)
                     self.cells[idx] = c
@@ -218,20 +227,24 @@ class simgrid:
         print("connecting cells")
         #parse boundary list
         idx = 0
+        
+        outside = self.outside
         for half in boundary_names.keys():
             ids = boundary_names[half] # cell ids in this connection
-            
-            cond = self.boundary_cond
             
             cells = [self.cells[x] for x in ids] # grab references
             
             c1 = self.cells[ids[0]]
+            #if there is a second cell, connect
+            #else, connect to "outside" region
             if len(ids) == 2:
                 c2 = self.cells[ids[1]]
             else:
-                c2 = None
+                c2 = outside
+                nconnect = c2.incr_connector()
+                # print(nconnect)
             
-            thisbound = bound(mat, c1, c2, cond)
+            thisbound = bound(mat, c1, c2, self.flow)
             
             self.bounds[idx] = thisbound # generate and register this boundary
             
@@ -307,7 +320,12 @@ class simgrid:
                     print(u, test.count(u))
                 
                 raise Exception("{} != 4 bounds in cell {} ({}, {})".format(len(connected), c.idx, *c.loc))
-                    
+        
+    def save_layout(self, file = "test.txt"):
+        
+        with open(file, "w+") as o:
+            o.write(str(self))
+        
     # global update and extraction functions    
     
     @property
@@ -353,6 +371,7 @@ class simgrid:
         
         # testb = list(self.bounds.values())[int(len(self.bounds)/2)]
         # testc = testb.c1
+        rad = 0
         for c in self:
             #first stage - energy increase and dump to bounds
             
@@ -362,28 +381,35 @@ class simgrid:
             
             c.move_energy(e)            
             
-            c.dt(step)
+            rad += c.dt(step)
             
         for b in self.bounds.values():
             
             b.dt(step)
         
-        u = np.zeros(self.shape)
-        v = np.zeros(self.shape)
+        eu = np.zeros(self.shape)
+        ev = np.zeros(self.shape)
+        mu = np.zeros(self.shape)
+        mv = np.zeros(self.shape)
         for c in self:
             x, y = c.loc
             
-            u[x,y], v[x,y] = c.get_evect()
+            vect = c.get_vect()
             
-        return(u,v)
+            eu[x,y], ev[x,y] = vect["e"]
+            mu[x,y], mv[x,y] = vect["m"]
+            
+        # print(rad/len(self))
+        return(eu,ev,mu,mv)
     
 if __name__ == "__main__":
     
     fig = False
     
+    n = m = 21
     
-    p = input_grid(15,15)
-    p.add_circle(7)
+    p = input_grid(n,m)
+    p.add_circle(n/2)
     # p.add_circle(100)
     
     placement = p.grid
@@ -400,57 +426,91 @@ if __name__ == "__main__":
     water = material()
     water.update_material({"cp": 4184, "rho": 997, "mmass": 18.01528})
     
-    grid = simgrid(placement, cell, boundary, water, boundary_cond = "solid", cell_size = (0.1, 0.1))    
+    outside = edge(0)
+    
+    grid = simgrid(placement, cell, boundary, water, outside, 
+                   cell_size = (0.1, 0.1), t_init = 273,
+                   flow = True)    
     grid.fill()
+    grid.save_layout()
+    
+    # list(grid.cells.values())[0].t = 373
     
     if not os.path.exists("./tests/"):
         os.mkdir("./tests/")
-    
-    data = []
-    fwidth = 4
-    
-    # fig = True
+        
     
     items = glob.glob("./tests/*")
     
     for item in items:
         os.remove(item)
     
+    grid.save_layout("test.txt")
+    
     steps = 150
     
-    
+    data = {x:[] for x in grid.state}
     t0 = datetime.now()
+    eu = []
+    ev = []
+    mu = []
+    mv = []
     for i in range(steps):
         
         ebase = input_grid(*grid.shape)
         if i < 50:
-            ebase.add_cross()
-            ebase.add_circle(3.5)
+            # ebase.add_cross()
+            ebase.add_circle(n/6)
             test = ebase.grid
             
-        e = ebase.grid * 10000        
+        e = ebase.grid * 5000
+        
         # print()
         print("processing timestep {}".format(i+1))
-        t = grid.state["t"]
-        data.append(t)
-        u,v = grid.dt(e)
+        d = grid.state
         
-        if fig:
-            fig, ax = plt.subplots(1,1,figsize=(15,15))
+        for key in d:
+            data[key].append(d[key])
+        
+        vect = grid.dt(e, 10)
+        
+        eu.append(vect[0])
+        ev.append(vect[1])
+        mu.append(vect[2])
+        mv.append(vect[3]) #!!!TODO generalise this
             
-            im = ax.imshow(t, cmap = "seismic", vmin = 273, vmax = 323, origin='lower')
-            ax.quiver(u,v)
-            fig.colorbar(im)
+    dt = (datetime.now() - t0).total_seconds()
+    print("time taken: {:.2f}s".format(dt))
+       
+    
+    fig = True
+    
+    fwidth = 4
+    if fig:
+        print("plotting...")
+        
+        for i in range(len(data["t"])):
+            
+            fig, ax = plt.subplots(1,1,figsize=(16,16))
+            
+            print("plot {}".format(i+1))
+            
+            t = data["t"][i]
+        
+            im = ax.imshow(t, vmin = 273, vmax = 323, origin='lower')
+            ax.quiver(mu[i],mv[i])
+            
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            fig.colorbar(im, cax=cax, orientation='vertical')
             
             title = "timestep "
             title += "{}/{}".format(i+1,steps).ljust(len(str(steps))*2+2)
             
             ax.set_title(title)
             
+            
             istr = str(i).rjust(fwidth,"0")
             plt.savefig("./tests/{}.png".format(istr), bbox_inches="tight")
-            
-    dt = (datetime.now() - t0).total_seconds()
-    print("time taken: {:.2f}s".format(dt))
         
     #ffmpeg -r 12 -f image2 -i %04d.png -vcodec libx264 -crf 25 test.mp4

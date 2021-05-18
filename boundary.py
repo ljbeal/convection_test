@@ -5,11 +5,44 @@ Created on Sun May  9 12:14:40 2021
 @author: pc
 """
 
-from material import material
+class edge:
+    
+    def __init__(self, loss):
+        """
+        dummy cell for edge boundary condition handling
+        """
+        
+        self.loss = loss #heat loss in watts across whole simulation
+        
+        self.bounds = {}
+        
+        self.outside = True
+        self.connected = 0
+        
+        self.p = 0
+        self.idx = -1
+        
+    def __repr__(self):
+        return("edge region")
+        
+    def incr_connector(self):
+        
+        self.connected += 1
+        return(self.connected)
+    
+    def move_energy(self, de, orient = None, dt = 0):
+        
+        loss = self.loss/self.connected #max loss in W
+        P = loss * dt
+        
+        return(P)
+    
+    def move_material(self, *args):
+        pass
 
 class boundary:
     
-    def __init__(self, mat, c1, c2 = None, boundary_cond = "solid"):
+    def __init__(self, mat, c1, c2, flow = True):
         
         """
         
@@ -20,35 +53,24 @@ class boundary:
         
         self.modules = ["base"]
         
-        self.c1 = c1
+        self.c1 = c1            
         self.c2 = c2
         
         self.connected = [c1, c2]
-        
-        if (type(c2) == str) or (c2 == None):
-            self._type = self.c2 = boundary_cond
-        else:
-            self._type = "join"
+        self.pressure = [0, 0]
             
         self.mat = mat
+        
+        self.flow = flow
         
         self._e = 0 #energy stored in this boundary
             
     def __repr__(self):
         ret = "bound: " + str(self.c1)
         
-        if self.edge:
-            ret += ", " + self.type
+        ret += ", " + str(self.c2)
             
-        else:
-            ret += ", " + str(self.c2)
-            
-        return(ret)    
-        
-    @property
-    def edge(self):
-        #return True if this boundary is at the edge of the simspace
-        return(self._type != "join")
+        return(ret)
     
     @property
     def type(self):
@@ -62,28 +84,37 @@ class boundary:
     
     def dt(self, step):
         #share energy across boundary
+            
         store = self._e
         
-        c1orient = self.get_orient(self.c1)
-        if not self.edge:            
+        c1e1 = self.c1._e
+        
+        c1orient = self.get_orient(self.c1)            
+        c2orient = self.get_orient(self.c2)
+        
+        if (self.flow) and (not self.c2.outside):
+            #ratio of pressures in cells
+            forward_pressure_ratio = self.pressure[0]/self.pressure[1]
             
-            c2orient = self.get_orient(self.c2)
             
-            self.c1.move_energy(store/2, c1orient)
-            self.c2.move_energy(store/2, c2orient)
+            mvect = 1 - forward_pressure_ratio
             
+            self.c1.move_material(mvect, c1orient)
+            self.c2.move_material(-mvect, c2orient) #assumptions, assumptions
+        
+        if c2orient == None:
+            share = self.c2.move_energy(store, c2orient, step)    
         else:
-            if self.type == "free":
-                ratio = 2
-            elif self.type == "solid":
-                ratio = 1
+            share = self.c2.move_energy(store/2, c2orient, step)   
             
-            self.c1.move_energy(store/ratio, c1orient)
-            
+        self.c1.move_energy(store - share, c1orient)
+        
+        # if c2orient == None:
+        #     print("\ttimestep {}s, stored {}J. lost {} to c2".format(step, store, share))
+        #     print("\tc1 e {} -> {}J".format(c1e1, self.c1._e))
+        
         self._e = 0 #reset energy
         
-                
-    
 if __name__ == "__main__":
     
     from cell import cell
